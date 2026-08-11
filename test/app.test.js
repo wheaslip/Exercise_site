@@ -36,3 +36,43 @@ test('set workload applies speed modifiers and neutral bodyweight factor',()=>{a
 test('relative thresholds classify fresh, moderate, and high groups',()=>{const groups=[bodyGroup('High'),bodyGroup('Mid'),bodyGroup('Low'),bodyGroup('Fresh')],history={'2026-01-10':heatDay(heatEvent('High',100),heatEvent('Mid',50),heatEvent('Low',20))};const result=calculateWorkload(history,groups,new Date(2026,0,10));assert.deepEqual(Object.fromEntries(Object.entries(result.groups).map(([name,value])=>[name,value.state])),{High:'red',Mid:'orange',Low:'green',Fresh:'green'});assert.equal(workloadState(2/3),'red');assert.equal(workloadState(1/3),'orange')});
 test('multi-region group contribution is divided evenly',()=>{const result=calculateWorkload({'2026-01-10':heatDay(heatEvent('A'))},[bodyGroup('A',1,['chest','shoulders'])],new Date(2026,0,10));assert.equal(result.regions.chest.score,.5);assert.equal(result.regions.shoulders.score,.5)});
 test('non-body groups are returned as named workload results, not regions',()=>{const group={...bodyGroup('Balance'),display:{type:'non-body',regions:[]}};const result=calculateWorkload({'2026-01-10':heatDay(heatEvent('Balance'))},[group],new Date(2026,0,10));assert.equal(result.nonBody[0].name,'Balance');assert.equal(result.nonBody[0].state,'red');assert.deepEqual(result.regions,{})});
+
+import { BACKUP_FORMAT, BACKUP_VERSION, backupFilename, parseBackup, restoreBackup, serializeBackup } from '../src/backup.js';
+const backupNow = new Date(2026, 0, 10, 12);
+function backupState() {
+  let state = freshState(() => 0);
+  state = complete(state, set(state.selected), new Date(2026, 0, 9, 10), () => 0, () => 'backup-event');
+  return state;
+}
+test('backup export/import round trip preserves configuration, selection, timer, and history', () => {
+  const original = backupState(), text = serializeBackup(original, backupNow), parsed = JSON.parse(text);
+  assert.equal(parsed.format, BACKUP_FORMAT); assert.equal(parsed.version, BACKUP_VERSION); assert.equal(parsed.exportedAt, backupNow.toISOString());
+  assert.match(text, /\n  "format"/); assert.equal(backupFilename(backupNow), 'wesleys-house-of-pain-backup-2026-01-10.json');
+  assert.deepEqual(parseBackup(text, backupNow, () => 0), original);
+});
+test('later-date restoration preserves historical date keys and derives elapsed running timer', () => {
+  const original = backupState(); original.timer = { seconds: 100, running: true, startedAt: backupNow.getTime() - 5_000 };
+  const later = new Date(2026, 0, 11, 12), restored = parseBackup(serializeBackup(original, backupNow), later, () => 0);
+  assert.ok(restored.history['2026-01-09']); assert.equal(restored.history['2026-01-11'], undefined);
+  assert.equal(restored.timer.seconds, 95 - 86_400); assert.equal(restored.timer.startedAt, later.getTime());
+});
+test('backup rejects malformed JSON and unsupported versions', () => {
+  assert.throws(() => parseBackup('{broken', backupNow), /not valid JSON/);
+  const backup = JSON.parse(serializeBackup(backupState(), backupNow)); backup.version++;
+  assert.throws(() => parseBackup(JSON.stringify(backup), backupNow), /not supported/);
+});
+test('backup rejects invalid history records rather than partially importing them', () => {
+  const backup = JSON.parse(serializeBackup(backupState(), backupNow)); backup.state.history['2026-01-09'].events[0].speed = 'invalid';
+  assert.throws(() => parseBackup(JSON.stringify(backup), backupNow), /invalid event/);
+});
+test('backup rejects future running timer timestamps', () => {
+  const backup = JSON.parse(serializeBackup(backupState(), backupNow)); backup.state.timer = { seconds: 10, running: true, startedAt: backupNow.getTime() + 1 };
+  assert.throws(() => parseBackup(JSON.stringify(backup), backupNow), /timer timestamp/);
+});
+test('failed import or persistence leaves the current state unchanged', () => {
+  const current = backupState(), snapshot = structuredClone(current), storage = { setItem() { throw new Error('storage full'); } };
+  assert.throws(() => restoreBackup(serializeBackup(freshState(() => .9), backupNow), current, storage, backupNow), /storage full/);
+  assert.deepEqual(current, snapshot);
+  assert.throws(() => restoreBackup('bad json', current, storage, backupNow), /not valid JSON/);
+  assert.deepEqual(current, snapshot);
+});

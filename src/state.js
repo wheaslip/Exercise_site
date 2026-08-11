@@ -12,19 +12,37 @@ export function freshState(random = Math.random) {
   return { version: VERSION, config, timer: { seconds: 0, running: false, startedAt: null }, selected: selectExercise(config.groups, random), history: {} };
 }
 
-function validConfig(config) {
+export function validConfig(config) {
   const supported = new Set(BODY_REGIONS.map(region => region.id));
   const validDisplay = display => display?.type === 'non-body' || (display?.type === 'body' && Array.isArray(display.regions) && display.regions.length > 0 && display.regions.every(region => supported.has(region)));
   return config && Number.isInteger(config.dailyTarget) && config.dailyTarget > 0 && Number.isFinite(config.rewardMinutes) && config.rewardMinutes > 0 && Array.isArray(config.groups) && config.groups.every(group => group && typeof group.name === 'string' && Number.isFinite(Number(group.weight)) && Number(group.weight) >= 0 && validDisplay(group.display) && Array.isArray(group.exercises) && group.exercises.every(exercise => typeof exercise === 'string'));
 }
 
-function validStoredEvent(event, day) {
+export function validStoredEvent(event, day) {
   if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.timestamp !== 'string' || typeof event.date !== 'string') return false;
   const parsedTimestamp = new Date(event.timestamp);
   return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && SPEEDS.includes(event.speed);
 }
 
 export function dailyTotal(day) { return Array.isArray(day?.events) ? day.events.length : 0; }
+
+export function validateState(raw) {
+  if (!raw || typeof raw !== 'object') throw new TypeError('The backup does not contain state.');
+  if (raw.version !== VERSION) throw new TypeError(`State version ${String(raw.version)} is not supported.`);
+  if (!validConfig(raw.config)) throw new TypeError('The backup configuration is invalid.');
+  if (!raw.timer || !Number.isFinite(raw.timer.seconds) || typeof raw.timer.running !== 'boolean' || (raw.timer.running ? !Number.isFinite(raw.timer.startedAt) : raw.timer.startedAt !== null)) throw new TypeError('The backup timer is invalid.');
+  if (!raw.selected || typeof raw.selected.group !== 'string' || typeof raw.selected.exercise !== 'string') throw new TypeError('The backup random selection is invalid.');
+  if (!raw.history || typeof raw.history !== 'object' || Array.isArray(raw.history)) throw new TypeError('The backup history is invalid.');
+  const seenIds = new Set();
+  for (const [day, value] of Object.entries(raw.history)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !value || !Number.isInteger(value.target) || value.target <= 0 || !Array.isArray(value.events)) throw new TypeError(`The history record for ${day} is invalid.`);
+    for (const event of value.events) {
+      if (!validStoredEvent(event, day) || seenIds.has(event.id)) throw new TypeError(`The history record for ${day} contains an invalid event.`);
+      seenIds.add(event.id);
+    }
+  }
+  return raw;
+}
 
 export function sanitizeState(raw, random = Math.random, now = new Date()) {
   const fallback = freshState(random);
