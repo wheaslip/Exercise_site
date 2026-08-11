@@ -1,9 +1,10 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import {timerSeconds,startTimer,stopTimer,addTimerSeconds} from '../src/timer.js';
+import {timerSeconds,startTimer,stopTimer,addTimerSeconds,timerStatus} from '../src/timer.js';
 import {calculateWorkload,setWorkload,workloadState} from '../src/heatmap.js';
 import {selectExercise} from '../src/selection.js'; import {VERSION,dailyTotal,freshState,sanitizeState,complete,skip,streak} from '../src/state.js'; import {localDateKey,retainHistory} from '../src/date.js'; import {chartSeries} from '../src/stats.js';
 
 test('timer passes below zero',()=>assert.equal(timerSeconds({seconds:1,running:true,startedAt:0},3000),-2));
+test('timer status uses warning boundaries',()=>{assert.equal(timerStatus(-1),'negative');assert.equal(timerStatus(0),'warning');assert.equal(timerStatus(299),'warning');assert.equal(timerStatus(300),'healthy')});
 test('timer pause, resume, and timestamp reload timing',()=>{let t=startTimer({seconds:10,running:false,startedAt:null},1000);t=stopTimer(t,4000);assert.equal(t.seconds,7);t=startTimer(t,9000);assert.equal(timerSeconds(t,11000),5);assert.deepEqual(JSON.parse(JSON.stringify(t)),t)});
 test('adding reward settles elapsed time first',()=>assert.equal(timerSeconds(addTimerSeconds({seconds:10,running:true,startedAt:0},60,5000),5000),65));
 const set=(selected,overrides={})=>({...selected,repetitions:8,weight:0,speed:'normal',...overrides});
