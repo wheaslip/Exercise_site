@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 430" role="img" aria-labelledby="body-title body-desc">
+  <title id="body-title">Recent workload by body region</title>
+  <desc id="body-desc">Front and back human silhouettes. Each labeled region uses a color and stripe or dot pattern to indicate fresh, moderate, or high recent workload.</desc>
+  <defs>
+    <pattern id="pattern-orange" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#d9822b"/><path d="M-2 2L2-2M0 8L8 0M6 10L10 6" stroke="#20150a" stroke-width="2" opacity=".45"/></pattern>
+    <pattern id="pattern-red" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#d4473f"/><circle cx="2" cy="2" r="1.4" fill="#260806"/><circle cx="6" cy="6" r="1.4" fill="#260806"/></pattern>
+  </defs>
+  <g class="figure" aria-label="Front view" transform="translate(35 10)">
+    <text class="view-label" x="95" y="18">FRONT</text><circle class="body-base" cx="95" cy="52" r="28"/><path class="body-base" d="M66 82Q95 70 124 82L145 183 125 224 120 397H84L77 224 45 183Z"/>
+    <path id="region-shoulders-front" data-region="shoulders" d="M50 91Q95 70 140 91L130 116Q95 96 60 116Z"/><path id="region-chest-front" data-region="chest" d="M62 112H128L124 166H66Z"/>
+    <path id="region-core-front" data-region="core" d="M67 169H123L119 225H76Z"/><path id="region-biceps-front" data-region="biceps" d="M49 106L62 117 52 182 35 177Z M129 117L142 106 157 177 140 182Z"/>
+    <path id="region-triceps-front" data-region="triceps" d="M35 180L52 185 45 226 29 221Z M140 185L157 180 163 221 147 226Z"/>
+    <path id="region-upper-legs-front" data-region="upper-legs" d="M76 229H96L93 309H69Z M99 229H119L126 309H102Z"/><path id="region-lower-legs-front" data-region="lower-legs" d="M69 313H93L91 397H70Z M102 313H126L121 397H100Z"/>
+  </g>
+  <g class="figure" aria-label="Back view" transform="translate(290 10)">
+    <text class="view-label" x="95" y="18">BACK</text><circle class="body-base" cx="95" cy="52" r="28"/><path class="body-base" d="M66 82Q95 70 124 82L145 183 125 224 120 397H84L77 224 45 183Z"/>
+    <path id="region-shoulders-back" data-region="shoulders" d="M50 91Q95 70 140 91L130 116Q95 96 60 116Z"/><path id="region-upper-back-back" data-region="upper-back" d="M62 112H128L124 178 95 194 66 178Z"/>
+    <path id="region-core-back" data-region="core" d="M72 181L95 198 118 181 119 225H76Z"/><path id="region-triceps-back" data-region="triceps" d="M45 108L61 118 51 182 35 177Z M129 118L145 108 157 177 141 182Z"/>
+    <path id="region-biceps-back" data-region="biceps" d="M35 180L51 185 45 226 29 221Z M141 185L157 180 163 221 147 226Z"/>
+    <path id="region-upper-legs-back" data-region="upper-legs" d="M76 229H96L93 309H69Z M99 229H119L126 309H102Z"/><path id="region-lower-legs-back" data-region="lower-legs" d="M69 313H93L91 397H70Z M102 313H126L121 397H100Z"/>
+  </g>
+</svg>

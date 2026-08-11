@@ -1,4 +1,4 @@
-import { defaultConfig } from './defaults.js';
+import { BODY_REGIONS, defaultConfig } from './defaults.js';
 import { localDateKey, retainHistory, addLocalDays } from './date.js';
 import { selectExercise } from './selection.js';
 import { addTimerSeconds } from './timer.js';
@@ -13,7 +13,9 @@ export function freshState(random = Math.random) {
 }
 
 function validConfig(config) {
-  return config && Number.isInteger(config.dailyTarget) && config.dailyTarget > 0 && Number.isFinite(config.rewardMinutes) && config.rewardMinutes > 0 && Array.isArray(config.groups) && config.groups.every(group => group && typeof group.name === 'string' && Number(group.weight) > 0 && Array.isArray(group.exercises) && group.exercises.every(exercise => typeof exercise === 'string'));
+  const supported = new Set(BODY_REGIONS.map(region => region.id));
+  const validDisplay = display => display?.type === 'non-body' || (display?.type === 'body' && Array.isArray(display.regions) && display.regions.length > 0 && display.regions.every(region => supported.has(region)));
+  return config && Number.isInteger(config.dailyTarget) && config.dailyTarget > 0 && Number.isFinite(config.rewardMinutes) && config.rewardMinutes > 0 && Array.isArray(config.groups) && config.groups.every(group => group && typeof group.name === 'string' && Number.isFinite(Number(group.weight)) && Number(group.weight) >= 0 && validDisplay(group.display) && Array.isArray(group.exercises) && group.exercises.every(exercise => typeof exercise === 'string'));
 }
 
 function validStoredEvent(event, day) {
