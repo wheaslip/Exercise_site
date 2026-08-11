@@ -19,6 +19,14 @@ The app stores a versioned document under `whop-state` in browser `localStorage`
 
 Use **Settings → Reset all saved data** to restore defaults after a confirmation. Clearing this site's browser storage has the same effect.
 
+### Backups and restores
+
+Use **Settings → Download backup** to save a human-readable, pretty-printed JSON file with a date-based filename. A backup contains an explicit backup format and version, its export timestamp, the complete application configuration, timer state and running timestamp, the current random exercise offer, and all workout history still retained by the app (including original local date keys and event timestamps).
+
+**Restore backup** accepts `.json`/`application/json` files and asks for confirmation before replacing anything. The whole document is parsed and validated with the application state schema before it is written; malformed JSON, invalid configuration or event records, duplicate event IDs, unsupported backup/state versions, invalid timestamps, and persistence failures leave the existing state unchanged and display an error. Restored events keep their recorded local dates and timestamps, so the “Completed today” view continues to use only the current local date key rather than the restore date. Normal 366-day retention is applied at restore time.
+
+A running timer is reconstructed at the restore time: elapsed time through the backup export and the time since export are both deducted. Future export timestamps and timer start timestamps later than the export are rejected, preventing clock anomalies from adding time. Paused timers are restored exactly. Backup format version `1` is supported; backups with other format versions or incompatible application state versions are rejected rather than partially migrated.
+
 ## Configuration and streak rule
 
 Settings allow positive daily targets, reward minutes, non-negative group weights, names, newline-separated exercises, and an explicit display classification. Every group is either assigned one or more supported body regions or marked **non-body** (useful for stretching, balance, and prehab). Newly added groups start as non-body so the app never guesses anatomy from a name. The defaults target 18 exercises and award 30 minutes. Upper legs has weight 2; all other groups have weight 1.
@@ -46,6 +54,7 @@ Group scores are normalized against the largest active group contribution in the
 
 - `src/main.js` renders the UI and wires interactions.
 - `src/state.js` owns transitions, validation, persistence, history, and streaks.
+- `src/backup.js` owns versioned JSON export, strict import validation, timer restoration, and backup filenames.
 - `src/timer.js` implements timestamp-based timer behavior.
 - `src/selection.js` implements weighted selection.
 - `src/date.js` and `src/stats.js` provide local-day retention and chart series.
