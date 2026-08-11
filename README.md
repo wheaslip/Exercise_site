@@ -21,9 +21,26 @@ Use **Settings → Reset all saved data** to restore defaults after a confirmati
 
 ## Configuration and streak rule
 
-Settings allow positive daily targets, reward minutes, group weights, names, and newline-separated exercises. The defaults target 18 exercises and award 30 minutes. Upper legs has weight 2; all other groups have weight 1.
+Settings allow positive daily targets, reward minutes, non-negative group weights, names, newline-separated exercises, and an explicit display classification. Every group is either assigned one or more supported body regions or marked **non-body** (useful for stretching, balance, and prehab). Newly added groups start as non-body so the app never guesses anatomy from a name. The defaults target 18 exercises and award 30 minutes. Upper legs has weight 2; all other groups have weight 1.
 
 Each history entry captures the target applicable on that day. A streak counts consecutive days that reached their saved target. An incomplete current day is a grace day: it does not break a streak ending yesterday. Once today reaches its target, today is included.
+
+## Four-day workload heatmap
+
+The heatmap is computed independently of the DOM in `src/heatmap.js`. Only the current local calendar day and its previous three days are included. Their age multipliers are respectively **1, 0.7, 0.4, and 0.2**; future records and records at least four days old contribute nothing.
+
+For each completed set:
+
+```text
+set workload = repetitions × speed factor × load factor
+speed factor = slow 0.8, normal 1, plyometric 1.25
+load factor = 1 + entered weight / 100
+group contribution = set workload × recency multiplier / selection weight
+```
+
+Entered weight zero means bodyweight and deliberately uses the neutral load factor **1**. A configured selection weight of zero also uses a neutral divisor of **1**, avoiding division by zero (and the selection engine does not randomly offer that group). If a body group maps to several regions, its normalized contribution is divided evenly among them.
+
+Group scores are normalized against the largest active group contribution in the four-day window. A score below **1/3** is **fresh/green**, a score from **1/3 up to 2/3** is **moderate/orange**, and a score at or above **2/3** is **high/red**. A group without recent workload has score zero and is fresh/green. The diagram and non-body cards use these same states, with labels plus distinct solid, striped, and dotted treatments so meaning does not depend on red/green color perception.
 
 ## Project structure
 
@@ -33,5 +50,7 @@ Each history entry captures the target applicable on that day. A streak counts c
 - `src/selection.js` implements weighted selection.
 - `src/date.js` and `src/stats.js` provide local-day retention and chart series.
 - `src/chart.js` draws the dependency-free canvas chart.
+- `src/heatmap.js` performs deterministic workload scoring and classification.
+- `src/body.svg` provides the accessible, repository-owned front/back diagram.
 - `src/defaults.js` contains default configuration.
 - `test/` contains focused Node unit tests.
