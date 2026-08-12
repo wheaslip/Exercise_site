@@ -18,6 +18,19 @@ function validConfig(config) {
   return config && Number.isInteger(config.dailyTarget) && config.dailyTarget > 0 && Number.isFinite(config.rewardMinutes) && config.rewardMinutes > 0 && Array.isArray(config.groups) && config.groups.every(group => group && typeof group.name === 'string' && Number.isFinite(Number(group.weight)) && Number(group.weight) >= 0 && validDisplay(group.display) && Array.isArray(group.exercises) && group.exercises.every(exercise => typeof exercise === 'string'));
 }
 
+function migrateVersion2Config(config) {
+  if (!config || !Array.isArray(config.groups)) return config;
+  const defaultDisplays = new Map(defaultConfig().groups.map(group => [group.name, group.display]));
+  return {
+    ...config,
+    groups: config.groups.map(group => {
+      if (!group || Object.hasOwn(group, 'display')) return group;
+      const display = defaultDisplays.get(group.name) || { type: 'non-body', regions: [] };
+      return { ...group, display: structuredClone(display) };
+    }),
+  };
+}
+
 function validStoredEvent(event, day) {
   if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.timestamp !== 'string' || typeof event.date !== 'string') return false;
   const parsedTimestamp = new Date(event.timestamp);
@@ -28,7 +41,9 @@ export function dailyTotal(day) { return Array.isArray(day?.events) ? day.events
 
 export function sanitizeState(raw, random = Math.random, now = new Date()) {
   const fallback = freshState(random);
-  if (!raw || raw.version !== VERSION || !validConfig(raw.config)) return fallback;
+  if (!raw || raw.version !== VERSION) return fallback;
+  const config = migrateVersion2Config(raw.config);
+  if (!validConfig(config)) return fallback;
   const timer = raw.timer && Number.isFinite(raw.timer.seconds) && typeof raw.timer.running === 'boolean' && (!raw.timer.running || Number.isFinite(raw.timer.startedAt)) ? raw.timer : fallback.timer;
   const history = {}, seenIds = new Set();
   if (raw.history && typeof raw.history === 'object') for (const [day, value] of Object.entries(raw.history)) {
@@ -37,10 +52,10 @@ export function sanitizeState(raw, random = Math.random, now = new Date()) {
       if (!validStoredEvent(event, day) || seenIds.has(event.id)) return false;
       seenIds.add(event.id); return true;
     }).map(event => ({ ...event }));
-    history[day] = { target: Number.isInteger(value.target) && value.target > 0 ? value.target : raw.config.dailyTarget, events };
+    history[day] = { target: Number.isInteger(value.target) && value.target > 0 ? value.target : config.dailyTarget, events };
   }
-  const selected = raw.selected && typeof raw.selected.group === 'string' && typeof raw.selected.exercise === 'string' ? raw.selected : selectExercise(raw.config.groups, random);
-  return { version: VERSION, config: raw.config, timer, selected, history: retainHistory(history, now) };
+  const selected = raw.selected && typeof raw.selected.group === 'string' && typeof raw.selected.exercise === 'string' ? raw.selected : selectExercise(config.groups, random);
+  return { version: VERSION, config, timer, selected, history: retainHistory(history, now) };
 }
 
 export function loadState(storage = localStorage, random = Math.random, now = new Date()) { try { return sanitizeState(JSON.parse(storage.getItem(STORAGE_KEY)), random, now); } catch { return freshState(random); } }
