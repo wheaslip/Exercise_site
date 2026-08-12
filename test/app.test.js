@@ -1,7 +1,7 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import {timerSeconds,startTimer,stopTimer,addTimerSeconds,timerStatus} from '../src/timer.js';
 import {calculateWorkload,setWorkload,workloadState} from '../src/heatmap.js';
-import {selectExercise} from '../src/selection.js'; import {VERSION,dailyTotal,freshState,sanitizeState,complete,skip,streak} from '../src/state.js'; import {localDateKey,retainHistory} from '../src/date.js'; import {chartSeries} from '../src/stats.js';
+import {selectExercise} from '../src/selection.js'; import {VERSION,dailyTotal,freshState,sanitizeState,complete,skip,streak,loadState,saveState} from '../src/state.js'; import {localDateKey,retainHistory} from '../src/date.js'; import {chartSeries} from '../src/stats.js';
 
 test('timer passes below zero',()=>assert.equal(timerSeconds({seconds:1,running:true,startedAt:0},3000),-2));
 test('timer status uses warning boundaries',()=>{assert.equal(timerStatus(-1),'negative');assert.equal(timerStatus(0),'warning');assert.equal(timerStatus(299),'warning');assert.equal(timerStatus(300),'healthy')});
@@ -75,4 +75,33 @@ test('failed import or persistence leaves the current state unchanged', () => {
   assert.deepEqual(current, snapshot);
   assert.throws(() => restoreBackup('bad json', current, storage, backupNow), /not valid JSON/);
   assert.deepEqual(current, snapshot);
+});
+
+import { applyConfigDraft, createConfigDraft } from '../src/config.js';
+test('configuration draft cancellation leaves live state and persistence unchanged', () => {
+  const state = freshState(() => 0), original = structuredClone(state.config), draft = createConfigDraft(state.config);
+  draft.groups[0].name = 'Unsaved name'; draft.groups.push({ name: 'Draft only', weight: 1, display: { type: 'non-body', regions: [] }, exercises: ['draft'] });
+  const storage = { value: null, setItem(key, value) { this.value = value; } }; saveState(state, storage);
+  assert.deepEqual(state.config, original); assert.deepEqual(JSON.parse(storage.value).config, original);
+});
+test('saving a complete configuration draft replaces config without retaining draft references', () => {
+  const state = freshState(() => 0), draft = createConfigDraft(state.config);
+  draft.dailyTarget = 7; draft.groups[0].name = 'Renamed'; draft.groups[0].weight = 2; draft.groups[0].display = { type: 'body', regions: ['upper-back'] }; draft.groups[0].exercises = ['first', 'second'];
+  const saved = applyConfigDraft(state, draft, () => 0);
+  assert.equal(saved.config.dailyTarget, 7); assert.deepEqual(saved.config.groups[0], draft.groups[0]); assert.notEqual(saved.config, draft);
+  draft.groups[0].exercises.push('later draft edit'); assert.deepEqual(saved.config.groups[0].exercises, ['first', 'second']);
+});
+test('saving after deleting the selected exercise chooses a configured replacement', () => {
+  const state = freshState(() => 0), draft = createConfigDraft(state.config), selected = state.selected;
+  const group = draft.groups.find(item => item.name === selected.group); group.exercises = group.exercises.filter(exercise => exercise !== selected.exercise);
+  if (!group.exercises.length) group.exercises.push('replacement');
+  const saved = applyConfigDraft(state, draft, () => 0);
+  assert.notDeepEqual(saved.selected, selected);
+  assert.ok(saved.config.groups.some(item => item.name === saved.selected.group && item.exercises.includes(saved.selected.exercise)));
+});
+test('saved draft and reconciled selection survive subsequent persistence', () => {
+  const state = freshState(() => 0), draft = createConfigDraft(state.config); draft.groups = [{ name: 'Only', weight: 1, display: { type: 'non-body', regions: [] }, exercises: ['kept'] }];
+  const saved = applyConfigDraft(state, draft, () => 0), storage = { value: null, setItem(key, value) { this.value = value; }, getItem() { return this.value; } };
+  saveState(saved, storage); const loaded = loadState(storage, () => .5, new Date());
+  assert.deepEqual(loaded.config, draft); assert.deepEqual(loaded.selected, { group: 'Only', exercise: 'kept' });
 });
