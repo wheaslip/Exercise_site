@@ -22,14 +22,40 @@ function validStoredEvent(event, day) {
   return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && SPEEDS.includes(event.speed);
 }
 
+function validVersionOneCompletion(completion) {
+  return completion && typeof completion === 'object' && typeof completion.group === 'string' && Boolean(completion.group.trim()) && typeof completion.exercise === 'string' && Boolean(completion.exercise.trim()) && Number.isInteger(completion.repetitions) && completion.repetitions > 0 && Number.isFinite(completion.weight) && completion.weight >= 0 && SPEEDS.includes(completion.speed);
+}
+
+function migrateVersionOneHistory(history, config) {
+  const migrated = {};
+  if (!history || typeof history !== 'object') return migrated;
+  for (const [day, value] of Object.entries(history)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !value || !Array.isArray(value.sets)) continue;
+    const timestamp = new Date(`${day}T12:00:00.000Z`);
+    if (Number.isNaN(timestamp.getTime())) continue;
+    const events = value.sets.filter(validVersionOneCompletion).map((completion, index) => ({
+      id: `v1-${day}-${index}`,
+      timestamp: new Date(timestamp.getTime() + index).toISOString(),
+      date: day,
+      group: completion.group.trim(),
+      exercise: completion.exercise.trim(),
+      repetitions: completion.repetitions,
+      weight: completion.weight,
+      speed: completion.speed,
+    }));
+    migrated[day] = { target: Number.isInteger(value.target) && value.target > 0 ? value.target : config.dailyTarget, events };
+  }
+  return migrated;
+}
+
 export function dailyTotal(day) { return Array.isArray(day?.events) ? day.events.length : 0; }
 
 export function sanitizeState(raw, random = Math.random, now = new Date()) {
   const fallback = freshState(random);
-  if (!raw || raw.version !== VERSION || !validConfig(raw.config)) return fallback;
+  if (!raw || ![1, VERSION].includes(raw.version) || !validConfig(raw.config)) return fallback;
   const timer = raw.timer && Number.isFinite(raw.timer.seconds) && typeof raw.timer.running === 'boolean' && (!raw.timer.running || Number.isFinite(raw.timer.startedAt)) ? raw.timer : fallback.timer;
-  const history = {}, seenIds = new Set();
-  if (raw.history && typeof raw.history === 'object') for (const [day, value] of Object.entries(raw.history)) {
+  const history = raw.version === 1 ? migrateVersionOneHistory(raw.history, raw.config) : {}, seenIds = new Set();
+  if (raw.version === VERSION && raw.history && typeof raw.history === 'object') for (const [day, value] of Object.entries(raw.history)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !value || !Array.isArray(value.events)) continue;
     const events = value.events.filter(event => {
       if (!validStoredEvent(event, day) || seenIds.has(event.id)) return false;
