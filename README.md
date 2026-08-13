@@ -46,7 +46,7 @@ load factor = 1 + entered weight / 100
 group contribution = set workload × recency multiplier / selection weight
 ```
 
-Entered weight zero means bodyweight and deliberately uses the neutral load factor **1**. A configured selection weight of zero also uses a neutral divisor of **1**, avoiding division by zero (and the selection engine does not randomly offer that group). If a body group maps to several regions, its normalized contribution is divided evenly among them.
+Entered weight can be recorded in kilograms or pounds; pounds are converted to kilograms for workload calculations. Existing records without a unit are treated as kilograms. Entered weight zero means bodyweight and deliberately uses the neutral load factor **1**. A configured selection weight of zero also uses a neutral divisor of **1**, avoiding division by zero (and the selection engine does not randomly offer that group). If a body group maps to several regions, its normalized contribution is divided evenly among them.
 
 Group scores are normalized against the largest active group contribution in the four-day window. A score below **1/3** is **fresh/green**, a score from **1/3 up to 2/3** is **moderate/orange**, and a score at or above **2/3** is **high/red**. A group without recent workload has score zero and is fresh/green. The diagram and non-body cards use these same states, with labels plus distinct solid, striped, and dotted treatments so meaning does not depend on red/green color perception.
 

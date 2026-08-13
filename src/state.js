@@ -6,6 +6,7 @@ import { addTimerSeconds } from './timer.js';
 export const STORAGE_KEY = 'whop-state';
 export const VERSION = 2;
 export const SPEEDS = ['slow', 'normal', 'plyometric'];
+export const WEIGHT_UNITS = ['kg', 'lb'];
 
 export function freshState(random = Math.random) {
   const config = defaultConfig();
@@ -21,7 +22,7 @@ export function validConfig(config) {
 export function validStoredEvent(event, day) {
   if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.timestamp !== 'string' || typeof event.date !== 'string') return false;
   const parsedTimestamp = new Date(event.timestamp);
-  return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && SPEEDS.includes(event.speed);
+  return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && (event.weightUnit === undefined || WEIGHT_UNITS.includes(event.weightUnit)) && SPEEDS.includes(event.speed);
 }
 
 export function dailyTotal(day) { return Array.isArray(day?.events) ? day.events.length : 0; }
@@ -54,7 +55,7 @@ export function sanitizeState(raw, random = Math.random, now = new Date()) {
     const events = value.events.filter(event => {
       if (!validStoredEvent(event, day) || seenIds.has(event.id)) return false;
       seenIds.add(event.id); return true;
-    }).map(event => ({ ...event }));
+    }).map(event => ({ ...event, weightUnit: event.weightUnit ?? 'kg' }));
     history[day] = { target: Number.isInteger(value.target) && value.target > 0 ? value.target : raw.config.dailyTarget, events };
   }
   const selected = raw.selected && typeof raw.selected.group === 'string' && typeof raw.selected.exercise === 'string' ? raw.selected : selectExercise(raw.config.groups, random);
@@ -71,12 +72,14 @@ export function normalizeCompletion(config, payload) {
   const configured = config.groups.some(item => item.name === group && item.exercises.includes(exercise));
   const repetitions = typeof payload.repetitions === 'string' && payload.repetitions.trim() !== '' ? Number(payload.repetitions) : payload.repetitions;
   const weight = typeof payload.weight === 'string' && payload.weight.trim() !== '' ? Number(payload.weight) : payload.weight;
+  const weightUnit = typeof payload.weightUnit === 'string' ? payload.weightUnit.trim().toLowerCase() : 'kg';
   const speed = typeof payload.speed === 'string' ? payload.speed.trim().toLowerCase() : '';
   if (!configured) throw new TypeError('Choose a configured exercise.');
   if (!Number.isInteger(repetitions) || repetitions <= 0) throw new TypeError('Repetitions must be a positive integer.');
   if (!Number.isFinite(weight) || weight < 0) throw new TypeError('Weight must be a non-negative number.');
+  if (!WEIGHT_UNITS.includes(weightUnit)) throw new TypeError('Choose a valid weight unit.');
   if (!SPEEDS.includes(speed)) throw new TypeError('Choose a valid speed.');
-  return { group, exercise, repetitions, weight, speed };
+  return { group, exercise, repetitions, weight, weightUnit, speed };
 }
 
 function uniqueId() { return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }

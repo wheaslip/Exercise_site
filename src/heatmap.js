@@ -10,9 +10,10 @@ export function workloadState(score) {
   return 'green';
 }
 
-// Bodyweight (zero entered weight) has neutral factor 1; added load scales gently per 100 units.
+// Bodyweight (zero entered weight) has neutral factor 1; added load scales gently per 100 kg.
 export function setWorkload(event) {
-  return Number(event.repetitions) * (SPEED_MULTIPLIERS[event.speed] ?? 1) * (1 + Math.max(0, Number(event.weight) || 0) / 100);
+  const weightKg = Math.max(0, Number(event.weight) || 0) * (event.weightUnit === 'lb' ? 0.45359237 : 1);
+  return Number(event.repetitions) * (SPEED_MULTIPLIERS[event.speed] ?? 1) * (1 + weightKg / 100);
 }
 
 export function calculateWorkload(history, groups, now = new Date()) {
