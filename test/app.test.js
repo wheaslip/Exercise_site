@@ -110,4 +110,3 @@ test('saved draft and reconciled selection survive subsequent persistence', () =
   saveState(saved, storage); const loaded = loadState(storage, () => .5, new Date());
   assert.deepEqual(loaded.config, draft); assert.deepEqual(loaded.selected, { group: 'Only', exercise: 'kept' });
 });
-
