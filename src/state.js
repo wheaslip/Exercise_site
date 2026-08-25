@@ -22,7 +22,7 @@ export function validConfig(config) {
 export function validStoredEvent(event, day) {
   if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.timestamp !== 'string' || typeof event.date !== 'string') return false;
   const parsedTimestamp = new Date(event.timestamp);
-  return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && (event.weightUnit === undefined || WEIGHT_UNITS.includes(event.weightUnit)) && SPEEDS.includes(event.speed);
+  return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && (event.weightUnit === undefined || WEIGHT_UNITS.includes(event.weightUnit)) && SPEEDS.includes(event.speed) && (event.note === undefined || (typeof event.note === 'string' && Boolean(event.note.trim())));
 }
 
 export function dailyTotal(day) { return Array.isArray(day?.events) ? day.events.length : 0; }
@@ -74,12 +74,13 @@ export function normalizeCompletion(config, payload) {
   const weight = typeof payload.weight === 'string' && payload.weight.trim() !== '' ? Number(payload.weight) : payload.weight;
   const weightUnit = typeof payload.weightUnit === 'string' ? payload.weightUnit.trim().toLowerCase() : 'kg';
   const speed = typeof payload.speed === 'string' ? payload.speed.trim().toLowerCase() : '';
+  const note = typeof payload.note === 'string' ? payload.note.trim() : '';
   if (!configured) throw new TypeError('Choose a configured exercise.');
   if (!Number.isInteger(repetitions) || repetitions <= 0) throw new TypeError('Repetitions must be a positive integer.');
   if (!Number.isFinite(weight) || weight < 0) throw new TypeError('Weight must be a non-negative number.');
   if (!WEIGHT_UNITS.includes(weightUnit)) throw new TypeError('Choose a valid weight unit.');
   if (!SPEEDS.includes(speed)) throw new TypeError('Choose a valid speed.');
-  return { group, exercise, repetitions, weight, weightUnit, speed };
+  return { group, exercise, repetitions, weight, weightUnit, speed, ...(note ? { note } : {}) };
 }
 
 function uniqueId() { return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
@@ -102,3 +103,4 @@ export function streak(history, now = new Date(), defaultTarget = 18) {
   while (meetsTarget(history[key])) { count++; key = addLocalDays(key, -1); }
   return count;
 }
+
