@@ -12,6 +12,7 @@ export function workloadState(score) {
 
 // Bodyweight (zero entered weight) has neutral factor 1; added load scales gently per 100 kg.
 export function setWorkload(event) {
+  if (Number.isFinite(event.timePerSide)) return Math.max(0, event.timePerSide);
   const weightKg = Math.max(0, Number(event.weight) || 0) * (event.weightUnit === 'lb' ? 0.45359237 : 1);
   return Number(event.repetitions) * (SPEED_MULTIPLIERS[event.speed] ?? 1) * (1 + weightKg / 100);
 }
