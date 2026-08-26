@@ -7,6 +7,9 @@ export const STORAGE_KEY = 'whop-state';
 export const VERSION = 2;
 export const SPEEDS = ['slow', 'normal', 'plyometric'];
 export const WEIGHT_UNITS = ['kg', 'lb'];
+export const STRETCH_GROUP = 'Stretches';
+
+export function isStretchGroup(group) { return group === STRETCH_GROUP; }
 
 export function freshState(random = Math.random) {
   const config = defaultConfig();
@@ -22,7 +25,10 @@ export function validConfig(config) {
 export function validStoredEvent(event, day) {
   if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.timestamp !== 'string' || typeof event.date !== 'string') return false;
   const parsedTimestamp = new Date(event.timestamp);
-  return !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && (event.weightUnit === undefined || WEIGHT_UNITS.includes(event.weightUnit)) && SPEEDS.includes(event.speed) && (event.note === undefined || (typeof event.note === 'string' && Boolean(event.note.trim())));
+  const common = !Number.isNaN(parsedTimestamp.getTime()) && parsedTimestamp.toISOString() === event.timestamp && event.date === day && typeof event.group === 'string' && Boolean(event.group.trim()) && typeof event.exercise === 'string' && Boolean(event.exercise.trim()) && (event.note === undefined || (typeof event.note === 'string' && Boolean(event.note.trim())));
+  const standard = Number.isInteger(event.repetitions) && event.repetitions > 0 && Number.isFinite(event.weight) && event.weight >= 0 && (event.weightUnit === undefined || WEIGHT_UNITS.includes(event.weightUnit)) && SPEEDS.includes(event.speed);
+  const stretch = isStretchGroup(event.group) && Number.isInteger(event.timePerSide) && event.timePerSide > 0 && event.repetitions === undefined && event.weight === undefined && event.weightUnit === undefined && event.speed === undefined;
+  return common && (stretch || standard);
 }
 
 export function dailyTotal(day) { return Array.isArray(day?.events) ? day.events.length : 0; }
@@ -55,7 +61,7 @@ export function sanitizeState(raw, random = Math.random, now = new Date()) {
     const events = value.events.filter(event => {
       if (!validStoredEvent(event, day) || seenIds.has(event.id)) return false;
       seenIds.add(event.id); return true;
-    }).map(event => ({ ...event, weightUnit: event.weightUnit ?? 'kg' }));
+    }).map(event => event.timePerSide === undefined ? { ...event, weightUnit: event.weightUnit ?? 'kg' } : { ...event });
     history[day] = { target: Number.isInteger(value.target) && value.target > 0 ? value.target : raw.config.dailyTarget, events };
   }
   const selected = raw.selected && typeof raw.selected.group === 'string' && typeof raw.selected.exercise === 'string' ? raw.selected : selectExercise(raw.config.groups, random);
@@ -70,12 +76,17 @@ export function normalizeCompletion(config, payload) {
   const group = typeof payload.group === 'string' ? payload.group.trim() : '';
   const exercise = typeof payload.exercise === 'string' ? payload.exercise.trim() : '';
   const configured = config.groups.some(item => item.name === group && item.exercises.includes(exercise));
+  const timePerSide = typeof payload.timePerSide === 'string' && payload.timePerSide.trim() !== '' ? Number(payload.timePerSide) : payload.timePerSide;
   const repetitions = typeof payload.repetitions === 'string' && payload.repetitions.trim() !== '' ? Number(payload.repetitions) : payload.repetitions;
   const weight = typeof payload.weight === 'string' && payload.weight.trim() !== '' ? Number(payload.weight) : payload.weight;
   const weightUnit = typeof payload.weightUnit === 'string' ? payload.weightUnit.trim().toLowerCase() : 'kg';
   const speed = typeof payload.speed === 'string' ? payload.speed.trim().toLowerCase() : '';
   const note = typeof payload.note === 'string' ? payload.note.trim() : '';
   if (!configured) throw new TypeError('Choose a configured exercise.');
+  if (isStretchGroup(group)) {
+    if (!Number.isInteger(timePerSide) || timePerSide <= 0) throw new TypeError('Time per side must be a positive whole number of seconds.');
+    return { group, exercise, timePerSide, ...(note ? { note } : {}) };
+  }
   if (!Number.isInteger(repetitions) || repetitions <= 0) throw new TypeError('Repetitions must be a positive integer.');
   if (!Number.isFinite(weight) || weight < 0) throw new TypeError('Weight must be a non-negative number.');
   if (!WEIGHT_UNITS.includes(weightUnit)) throw new TypeError('Choose a valid weight unit.');
