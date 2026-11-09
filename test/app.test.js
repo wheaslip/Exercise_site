@@ -1,6 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import {timerSeconds,startTimer,stopTimer,addTimerSeconds,timerStatus} from '../src/timer.js';
-import {calculateWorkload,setWorkload,workloadState} from '../src/heatmap.js';
+import {calculateSetCounts,calculateWorkload,setWorkload,workloadState} from '../src/heatmap.js';
 import {selectExercise} from '../src/selection.js'; import {VERSION,dailyTotal,freshState,sanitizeState,complete,skip,streak,loadState,saveState} from '../src/state.js'; import {localDateKey,retainHistory} from '../src/date.js'; import {chartSeries,exerciseHistory,setEntryDefaults} from '../src/stats.js';
 
 test('timer passes below zero',()=>assert.equal(timerSeconds({seconds:1,running:true,startedAt:0},3000),-2));
@@ -39,6 +39,8 @@ const heatEvent=(group,repetitions=10,speed='normal',weight=0,weightUnit='kg')=>
 const heatDay=(...items)=>({events:items});
 test('heatmap applies explicit recency decay over local calendar days',()=>{const groups=[bodyGroup('A')],history={'2026-01-10':heatDay(heatEvent('A')),'2026-01-09':heatDay(heatEvent('A')),'2026-01-08':heatDay(heatEvent('A')),'2026-01-07':heatDay(heatEvent('A'))};assert.equal(calculateWorkload(history,groups,new Date(2026,0,10,12)).groups.A.raw,23)});
 test('heatmap ignores records aged four days and future-dated records',()=>{const groups=[bodyGroup('A')],history={'2026-01-06':heatDay(heatEvent('A',99)),'2026-01-11':heatDay(heatEvent('A',99))};assert.equal(calculateWorkload(history,groups,new Date(2026,0,10,12)).groups.A.raw,0)});
+test('seven-day set counts include today and the previous six local calendar days',()=>{const groups=[bodyGroup('A'),bodyGroup('B')],history={'2026-01-10':heatDay(heatEvent('A'),heatEvent('A')),'2026-01-09':heatDay(heatEvent('B')),'2026-01-04':heatDay(heatEvent('A'))};assert.deepEqual(calculateSetCounts(history,groups,new Date(2026,0,10,12)),{A:3,B:1})});
+test('seven-day set counts exclude older, future, and unconfigured groups',()=>{const groups=[bodyGroup('A'),bodyGroup('B')],history={'2026-01-03':heatDay(heatEvent('A')),'2026-01-11':heatDay(heatEvent('A')),'2026-01-10':heatDay(heatEvent('Other'))};assert.deepEqual(calculateSetCounts(history,groups,new Date(2026,0,10,12)),{A:0,B:0})});
 test('selection weight normalization prevents frequently offered groups dominating',()=>{const groups=[bodyGroup('A',2),bodyGroup('B',1)],history={'2026-01-10':heatDay(heatEvent('A',20),heatEvent('B',10))};const result=calculateWorkload(history,groups,new Date(2026,0,10));assert.equal(result.groups.A.raw,result.groups.B.raw)});
 test('zero group weight uses a finite neutral divisor',()=>{const result=calculateWorkload({'2026-01-10':heatDay(heatEvent('A'))},[bodyGroup('A',0)],new Date(2026,0,10));assert.equal(result.groups.A.raw,10);assert.ok(Number.isFinite(result.groups.A.score))});
 test('set workload applies speed modifiers and neutral bodyweight factor',()=>{assert.equal(setWorkload(heatEvent('A',10,'slow')),8);assert.equal(setWorkload(heatEvent('A',10,'normal')),10);assert.equal(setWorkload(heatEvent('A',10,'plyometric')),12.5);assert.equal(setWorkload(heatEvent('A',10,'normal',50)),15)});
