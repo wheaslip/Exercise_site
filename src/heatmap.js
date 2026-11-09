@@ -1,6 +1,7 @@
 import { addLocalDays, localDateKey } from './date.js';
 
 export const RECENCY_MULTIPLIERS = [1, 0.7, 0.4, 0.2];
+export const SET_COUNT_DAYS = 7;
 export const SPEED_MULTIPLIERS = { slow: 0.8, normal: 1, plyometric: 1.25 };
 export const THRESHOLDS = { orange: 1 / 3, red: 2 / 3 };
 
@@ -15,6 +16,18 @@ export function setWorkload(event) {
   if (Number.isFinite(event.timePerSide)) return Math.max(0, event.timePerSide);
   const weightKg = Math.max(0, Number(event.weight) || 0) * (event.weightUnit === 'lb' ? 0.45359237 : 1);
   return Number(event.repetitions) * (SPEED_MULTIPLIERS[event.speed] ?? 1) * (1 + weightKg / 100);
+}
+
+export function calculateSetCounts(history, groups, now = new Date()) {
+  const counts = Object.fromEntries(groups.map(group => [group.name, 0]));
+  const configuredGroups = new Set(groups.map(group => group.name));
+  for (let age = 0; age < SET_COUNT_DAYS; age++) {
+    const key = addLocalDays(localDateKey(now), -age);
+    for (const event of history[key]?.events || []) {
+      if (configuredGroups.has(event.group)) counts[event.group]++;
+    }
+  }
+  return counts;
 }
 
 export function calculateWorkload(history, groups, now = new Date()) {
